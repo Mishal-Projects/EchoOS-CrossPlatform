@@ -4,7 +4,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/Mishal-Projects/EchoOS-CrossPlatform)
 [![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)](https://github.com/Mishal-Projects/EchoOS-CrossPlatform)
-[![Tests](https://img.shields.io/badge/tests-passing-success)](https://github.com/Mishal-Projects/EchoOS-CrossPlatform)
 
 **EchoOS** is a secure, privacy-first, offline voice-controlled operating system interface with integrated voice biometric authentication. Control your computer entirely through voice commands without internet dependency.
 
@@ -12,7 +11,7 @@
 
 ## ✨ Key Features
 
-- 🔒 **Voice Biometric Authentication** - Secure user identification using Resemblyzer
+- 🔒 **Voice Biometric Authentication** - Secure user identification (optional)
 - 🎤 **Offline Speech Recognition** - Powered by Vosk (no internet required)
 - 🖥️ **Cross-Platform** - Works on Windows, macOS, and Linux
 - 🗣️ **Text-to-Speech Feedback** - Real-time voice responses
@@ -20,6 +19,7 @@
 - 🔐 **Session Management** - Secure multi-user access with encryption
 - ♿ **Accessibility Features** - Screen reading and navigation
 - 🎨 **Modern GUI** - Built with PySide6
+- 🛡️ **Security First** - All processing happens locally, no cloud dependency
 
 ## 📊 Performance Metrics
 
@@ -28,6 +28,47 @@
 - **Command Success Rate**: 93%
 - **Response Latency**: 150ms average
 - **Memory Footprint**: 315MB
+
+## 🚀 Quick Start (Automated Setup)
+
+### One-Command Installation
+
+```bash
+# Clone repository
+git clone https://github.com/Mishal-Projects/EchoOS-CrossPlatform.git
+cd EchoOS-CrossPlatform
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Automated setup (downloads models, creates config)
+python scripts/download_models.py
+
+# Launch EchoOS
+python run.py
+```
+
+That's it! The setup script will:
+- ✅ Download Vosk speech recognition model (~40MB)
+- ✅ Create configuration files
+- ✅ Set up user database
+- ✅ Verify all dependencies
+
+### First Run
+
+1. **Launch**: `python run.py`
+2. **Register**: Create your user account (voice or password)
+3. **Authenticate**: Login with voice or password
+4. **Start Using**: Try "open chrome" or "what's the battery status?"
 
 ## 🎯 Supported Commands
 
@@ -60,164 +101,113 @@
 - `read screen` / `navigate` / `click`
 - `scroll up` / `scroll down` / `zoom in` / `zoom out`
 
-## 🚀 Quick Start
+## 📋 Requirements
 
-### Prerequisites
+### System Requirements
+- **OS**: Windows 10/11, macOS 10.15+, or Linux (Ubuntu 20.04+)
+- **Python**: 3.8 or higher
+- **RAM**: 4GB minimum (8GB recommended)
+- **Disk Space**: 500MB free space
+- **Microphone**: Required for voice commands
 
-- Python 3.8 or higher
-- Microphone
-- 4GB RAM minimum (8GB recommended)
-- 500MB free disk space
+### Python Dependencies
+All dependencies are automatically installed via `requirements.txt`:
+- PySide6 (GUI)
+- Vosk (Speech Recognition)
+- pyttsx3 (Text-to-Speech)
+- sounddevice (Audio I/O)
+- psutil (System Information)
+- cryptography (Session Encryption)
+- And more...
 
-### Installation (3 Simple Steps)
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/Mishal-Projects/EchoOS-CrossPlatform.git
-cd EchoOS-CrossPlatform
-```
-
-2. **Create virtual environment and install**
-```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-3. **Setup and run**
-```bash
-# Using the smart launcher (recommended)
-python run.py
-
-# Or using Makefile
-make install
-make setup
-make run
-```
-
-The launcher will automatically:
-- Check all dependencies
-- Download Vosk model if needed
-- Setup configuration files
-- Test your microphone
-- Launch EchoOS
-
-## 📖 First Time Setup
-
-1. **Launch EchoOS** - Run `python run.py`
-2. **Register User** - Click "Register New User"
-3. **Record Voice Sample** - Speak clearly for 5-10 seconds
-4. **Authenticate** - Use voice authentication to login
-5. **Start Using** - Begin giving voice commands!
-
-## 🏗️ Project Structure
-
-```
-EchoOS-CrossPlatform/
-├── main.py                 # Application entry point
-├── run.py                  # Smart launcher with checks
-├── Makefile                # Development commands
-├── config/                 # Configuration files
-├── modules/                # Core modules (9 modules)
-│   ├── auth.py            # Voice authentication
-│   ├── stt.py             # Speech-to-text
-│   ├── tts.py             # Text-to-speech
-│   ├── parser.py          # Command parsing
-│   ├── executor.py        # Command execution
-│   ├── app_discovery.py   # App discovery
-│   ├── accessibility.py   # Accessibility features
-│   ├── ui.py              # GUI interface
-│   └── config.py          # Configuration manager
-├── scripts/               # Utility scripts (4 scripts)
-├── tests/                 # Unit tests (5 test files)
-├── docs/                  # Documentation (3 guides)
-└── models/                # Voice models
-```
-
-## 🔧 Development
-
-### Using Makefile
-
-```bash
-make help       # Show all commands
-make install    # Install dependencies
-make setup      # Run first-time setup
-make test       # Run tests with coverage
-make run        # Launch EchoOS
-make clean      # Clean temporary files
-make lint       # Run linters
-make format     # Format code
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest tests/
-
-# Run with coverage
-pytest --cov=modules tests/
-
-# Run specific test
-pytest tests/test_parser.py
-```
-
-## 📚 Documentation
-
-- **[User Manual](docs/USER_MANUAL.md)** - Complete guide for end users
-- **[API Documentation](docs/API.md)** - Detailed API reference
-- **[Development Guide](docs/DEVELOPMENT.md)** - For contributors
-- **[Installation Guide](INSTALLATION.md)** - Detailed setup instructions
-- **[Quick Start Guide](QUICKSTART.md)** - 5-minute getting started
-- **[Project Summary](PROJECT_SUMMARY.md)** - Architecture and metrics
-- **[Completion Summary](COMPLETION_SUMMARY.md)** - What's been completed
-
-## 🛡️ Security Features
-
-- **Voice Biometric Authentication** - Unique voice signatures
-- **Session Encryption** - Fernet encryption for session data
-- **Session Timeout** - 30-minute automatic logout
-- **Offline Processing** - No data sent to cloud
-- **Local Storage** - All data stored locally
-
-## 🧪 Testing
-
-Comprehensive test suite with 5 test files:
-- `test_auth.py` - Authentication tests
-- `test_parser.py` - Command parser tests
-- `test_executor.py` - Command executor tests
-- `test_stt.py` - Speech recognition tests
-- `test_tts.py` - Text-to-speech tests
-
-## 🐛 Troubleshooting
-
-### Quick Diagnostics
-
-```bash
-# Test microphone
-python scripts/test_microphone.py
-
-# Discover applications
-python scripts/discover_apps.py
-
-# Setup configuration
-python scripts/setup_config.py
-```
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-- **Microphone Not Detected**: Check permissions and default device
-- **Voice Not Recognized**: Reduce background noise, speak clearly
-- **Authentication Fails**: Re-register in quiet environment
-- **App Not Opening**: Run app discovery script
+**"No module named 'PySide6'"**
+```bash
+pip install -r requirements.txt
+```
 
-See [User Manual](docs/USER_MANUAL.md) for detailed troubleshooting.
+**"Vosk model not found"**
+```bash
+python scripts/download_models.py
+```
+
+**"No input devices found"**
+- Check microphone is connected
+- Grant microphone permissions to Python/Terminal
+- **macOS**: System Preferences → Security & Privacy → Microphone
+- **Windows**: Settings → Privacy → Microphone
+
+**"Voice authentication not working"**
+- Voice auth is optional and requires Resemblyzer
+- Falls back to password authentication automatically
+- To enable: `pip install resemblyzer`
+
+### Platform-Specific Setup
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install portaudio19-dev python3-dev
+```
+
+**macOS:**
+```bash
+brew install portaudio
+```
+
+**Windows:**
+- No additional setup needed
+
+For detailed troubleshooting, see [SETUP_GUIDE.md](SETUP_GUIDE.md)
+
+## 📚 Documentation
+
+- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Comprehensive installation guide
+- **[FIXES_APPLIED.md](FIXES_APPLIED.md)** - All fixes and improvements
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
+- **[GETTING_STARTED.md](GETTING_STARTED.md)** - Beginner's guide
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** - Complete user manual
+- **[docs/API.md](docs/API.md)** - API documentation
+
+## 🏗️ Architecture
+
+```
+EchoOS/
+├── modules/              # Core modules
+│   ├── auth.py          # Voice/password authentication
+│   ├── stt.py           # Speech-to-text (Vosk)
+│   ├── tts.py           # Text-to-speech
+│   ├── parser.py        # Command parsing
+│   ├── executor.py      # Command execution
+│   ├── ui.py            # GUI interface
+│   └── ...
+├── scripts/             # Utility scripts
+│   ├── download_models.py  # Automated setup
+│   └── ...
+├── tests/               # Test suite
+├── config/              # Configuration files
+├── models/              # Speech recognition models
+└── docs/                # Documentation
+```
+
+## 🔐 Security Features
+
+- **Local Processing**: All data stays on your device
+- **Encrypted Sessions**: Fernet encryption for session data
+- **Input Validation**: Protection against command injection
+- **No Cloud Dependency**: Works completely offline
+- **Secure Authentication**: Voice biometrics or password-based
+
+## 🎓 Use Cases
+
+- **Accessibility**: Hands-free computer control
+- **Productivity**: Quick system operations
+- **Security**: Biometric authentication
+- **Automation**: Voice-controlled workflows
+- **Learning**: Study voice recognition and biometrics
 
 ## 🤝 Contributing
 
@@ -226,33 +216,48 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 ### Development Setup
 
 ```bash
-# Clone and setup
-git clone https://github.com/Mishal-Projects/EchoOS-CrossPlatform.git
-cd EchoOS-CrossPlatform
-
-# Install dev dependencies
+# Install development dependencies
 pip install -r requirements-dev.txt
 
 # Run tests
-make test
+pytest tests/ -v
+
+# Format code
+black modules/ tests/ scripts/
+
+# Lint code
+flake8 modules/ tests/
 ```
 
-## 🔮 Future Enhancements
+## 📊 Project Statistics
 
+- **Total Files**: 40+
+- **Lines of Code**: 4,500+
+- **Test Coverage**: Comprehensive test suite
+- **Documentation**: 8 detailed guides
+- **Supported Commands**: 40+
+- **Supported Platforms**: 3 (Windows, macOS, Linux)
+
+## 🗺️ Roadmap
+
+### Version 2.1 (Planned)
 - [ ] Natural Language Understanding (NLU)
-- [ ] Multi-language support (Spanish, French, German)
-- [ ] Continuous authentication
-- [ ] Mobile deployment (iOS/Android)
-- [ ] Plugin system for extensions
-- [ ] Cloud sync (optional)
+- [ ] Multi-language support
 - [ ] Voice command macros
-- [ ] Advanced accessibility features
+- [ ] Improved error messages
+
+### Version 3.0 (Future)
+- [ ] Continuous authentication
+- [ ] Mobile deployment
+- [ ] Plugin system
+- [ ] Cloud sync (optional)
+- [ ] Custom wake word support
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Author
+## 👨‍💻 Author
 
 **M A Mohammed Mishal**
 - GitHub: [@Mishal-Projects](https://github.com/Mishal-Projects)
@@ -262,38 +267,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Vosk** - Offline speech recognition
 - **Resemblyzer** - Voice biometric authentication
 - **PySide6** - Modern GUI framework
-- **pyttsx3** - Text-to-speech synthesis
+- **pyttsx3** - Text-to-speech engine
 
-## 📊 Project Stats
+## 📞 Support
 
-- **Total Files**: 35+
-- **Lines of Code**: 4,500+
-- **Test Coverage**: Comprehensive
-- **Documentation**: 8 detailed guides
-- **Supported Commands**: 40+
-- **Platforms**: 3 (Windows, macOS, Linux)
+- **Issues**: [GitHub Issues](https://github.com/Mishal-Projects/EchoOS-CrossPlatform/issues)
+- **Documentation**: See `docs/` directory
+- **Setup Help**: See [SETUP_GUIDE.md](SETUP_GUIDE.md)
 
-## 🎉 Project Status
+## ⭐ Star History
 
-✅ **Core Features**: Complete  
-✅ **Testing Suite**: Complete  
-✅ **Documentation**: Complete  
-✅ **CI/CD Pipeline**: Complete  
-✅ **Cross-Platform**: Complete  
-✅ **Production Ready**: Yes  
+If you find EchoOS useful, please consider giving it a star! ⭐
 
 ---
 
-**Ready to control your computer with your voice? Get started now!** 🎙️
+**Made with ❤️ for the open-source community**
 
-```bash
-git clone https://github.com/Mishal-Projects/EchoOS-CrossPlatform.git
-cd EchoOS-CrossPlatform
-python run.py
-```
-
-For detailed instructions, see [INSTALLATION.md](INSTALLATION.md) or [QUICKSTART.md](QUICKSTART.md).
-
----
-
-⭐ **Star this repo if you find it useful!**
+*Control your computer with your voice - securely, privately, offline.*
