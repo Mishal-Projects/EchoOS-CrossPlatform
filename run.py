@@ -40,13 +40,13 @@ def check_dependencies():
     required_packages = [
         'PySide6',
         'vosk',
-        'resemblyzer',
         'pyttsx3',
         'sounddevice',
         'numpy',
         'psutil',
         'rapidfuzz',
-        'cryptography'
+        'cryptography',
+        'requests'
     ]
     
     missing = []
@@ -57,7 +57,18 @@ def check_dependencies():
             missing.append(package)
     
     if not missing:
-        print("✓ All dependencies installed")
+        print("✓ All required dependencies installed")
+        
+        # Check optional dependencies
+        optional = []
+        try:
+            __import__('resemblyzer')
+        except ImportError:
+            optional.append('resemblyzer')
+        
+        if optional:
+            print(f"  ⚠ Optional: {', '.join(optional)} (voice auth will use password fallback)")
+        
         return True
     else:
         print(f"✗ Missing: {', '.join(missing)}")
@@ -76,7 +87,7 @@ def check_vosk_model():
         print("✗ Models directory not found")
         print()
         print("  Download Vosk model:")
-        print("  python scripts/download_vosk_model.py")
+        print("  python scripts/download_models.py")
         return False
     
     # Check for any vosk model
@@ -91,7 +102,7 @@ def check_vosk_model():
         print("✗ No Vosk model found")
         print()
         print("  Download Vosk model:")
-        print("  python scripts/download_vosk_model.py")
+        print("  python scripts/download_models.py")
         return False
     
     return True
@@ -106,7 +117,7 @@ def check_config():
         print("✗ Config directory not found")
         print()
         print("  Setup configuration:")
-        print("  python scripts/setup_config.py")
+        print("  python scripts/download_models.py")
         return False
     
     required_files = [
@@ -128,7 +139,7 @@ def check_config():
         print(f"✗ Missing: {', '.join(missing)}")
         print()
         print("  Setup configuration:")
-        print("  python scripts/setup_config.py")
+        print("  python scripts/download_models.py")
         return False
 
 
@@ -165,31 +176,21 @@ def setup_first_time():
     print("=" * 60)
     print()
     
-    response = input("Run setup now? (y/n): ").lower()
+    response = input("Run automated setup now? (y/n): ").lower()
     if response != 'y':
         print("Setup cancelled. Run manually:")
-        print("  python scripts/setup_config.py")
-        print("  python scripts/download_vosk_model.py")
+        print("  python scripts/download_models.py")
         return False
     
     print()
-    print("Running setup...")
+    print("Running automated setup...")
     print()
     
-    # Setup configuration
-    print("1. Setting up configuration...")
-    result = subprocess.run([sys.executable, "scripts/setup_config.py"])
+    # Run download_models.py
+    result = subprocess.run([sys.executable, "scripts/download_models.py"])
     if result.returncode != 0:
-        print("Configuration setup failed")
-        return False
-    
-    print()
-    
-    # Download Vosk model
-    print("2. Downloading Vosk model...")
-    result = subprocess.run([sys.executable, "scripts/download_vosk_model.py"])
-    if result.returncode != 0:
-        print("Model download failed")
+        print()
+        print("Setup failed. Please check the errors above.")
         return False
     
     print()
