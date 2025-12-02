@@ -1,7 +1,8 @@
 """
 Voice Biometric Authentication Module for EchoOS
-Uses Resemblyzer for voice authentication
+Uses Resemblyzer for voice authentication (optional)
 Secure session management with encryption
+Falls back to password authentication if Resemblyzer unavailable
 """
 
 import pickle
@@ -13,13 +14,21 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
 from cryptography.fernet import Fernet
 import sounddevice as sd
-from resemblyzer import VoiceEncoder, preprocess_wav
 
 logger = logging.getLogger(__name__)
 
+# Try to import Resemblyzer (optional dependency)
+try:
+    from resemblyzer import VoiceEncoder, preprocess_wav
+    RESEMBLYZER_AVAILABLE = True
+    logger.info("Resemblyzer available - voice biometric authentication enabled")
+except ImportError:
+    RESEMBLYZER_AVAILABLE = False
+    logger.warning("Resemblyzer not available - falling back to password authentication")
+
 
 class Authenticator:
-    """Voice biometric authentication system"""
+    """Voice biometric authentication system with password fallback"""
     
     def __init__(self, tts=None, users_file: str = "config/users.pkl",
                  sessions_file: str = "config/sessions.pkl"):
@@ -34,9 +43,22 @@ class Authenticator:
         self.tts = tts
         self.users_file = pathlib.Path(users_file)
         self.sessions_file = pathlib.Path(sessions_file)
-        self.encoder = VoiceEncoder()
         self.current_user = None
         self.session_timeout = 30  # minutes
+        
+        # Initialize voice encoder if available
+        if RESEMBLYZER_AVAILABLE:
+            try:
+                self.encoder = VoiceEncoder()
+                self.voice_auth_enabled = True
+                logger.info("Voice encoder initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize voice encoder: {e}")
+                self.encoder = None
+                self.voice_auth_enabled = False
+        else:
+            self.encoder = None
+            self.voice_auth_enabled = False
         
         # Encryption key for sessions
         self.cipher_key = self._get_or_create_key()
@@ -46,11 +68,13 @@ class Authenticator:
         self.users = self._load_users()
         self.sessions = self._load_sessions()
         
-        logger.info("Authenticator initialized")
+        logger.info(f"Authenticator initialized (Voice auth: {self.voice_auth_enabled})")
     
     def _get_or_create_key(self) -> bytes:
         """Get or create encryption key"""
         key_file = pathlib.Path("config/.key")
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        
         if key_file.exists():
             return key_file.read_bytes()
         else:
@@ -71,6 +95,7 @@ class Authenticator:
     def _save_users(self):
         """Save users database"""
         try:
+            self.users_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.users_file, 'wb') as f:
                 pickle.dump(self.users, f)
             logger.info("Users database saved")
@@ -90,6 +115,7 @@ class Authenticator:
     def _save_sessions(self):
         """Save sessions database"""
         try:
+            self.sessions_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.sessions_file, 'wb') as f:
                 pickle.dump(self.sessions, f)
         except Exception as e:
@@ -106,6 +132,10 @@ class Authenticator:
         Returns:
             Audio data as numpy array or None
         """
+        if not self.voice_auth_enabled:
+            logger.warning("Voice authentication not available")
+            return None
+        
         try:
             logger.info(f"Recording voice sample for {duration} seconds...")
             if self.tts:
@@ -132,13 +162,14 @@ class Authenticator:
                 self.tts.speak("Error recording voice sample")
             return None
     
-    def register_user(self, username: str, duration: int = 5) -> bool:
+    def register_user(self, username: str, password: Optional[str] = None, duration: int = 5) -> bool:
         """
-        Register new user with voice sample
+        Register new user with voice sample or password
         
         Args:
             username: Username to register
-            duration: Recording duration
+            password: Password (used if voice auth unavailable)
+            duration: Recording duration for voice sample
             
         Returns:
             True if successful, False otherwise
@@ -150,27 +181,44 @@ class Authenticator:
             return False
         
         try:
-            # Record voice sample
-            audio_data = self.record_voice_sample(duration)
-            if audio_data is None:
-                return False
-            
-            # Preprocess audio
-            wav = preprocess_wav(audio_data)
-            
-            # Generate voice embedding
-            embedding = self.encoder.embed_utterance(wav)
-            
-            # Store user
-            self.users[username] = {
-                'embedding': embedding,
+            user_data = {
                 'created_at': datetime.now(),
                 'last_login': None
             }
             
+            # Try voice authentication first
+            if self.voice_auth_enabled:
+                audio_data = self.record_voice_sample(duration)
+                if audio_data is not None:
+                    # Preprocess audio
+                    wav = preprocess_wav(audio_data)
+                    
+                    # Generate voice embedding
+                    embedding = self.encoder.embed_utterance(wav)
+                    user_data['embedding'] = embedding
+                    user_data['auth_type'] = 'voice'
+                else:
+                    logger.warning("Voice recording failed, falling back to password")
+                    if not password:
+                        if self.tts:
+                            self.tts.speak("Voice recording failed and no password provided")
+                        return False
+                    user_data['password_hash'] = hashlib.sha256(password.encode()).hexdigest()
+                    user_data['auth_type'] = 'password'
+            else:
+                # Use password authentication
+                if not password:
+                    if self.tts:
+                        self.tts.speak("Password required for authentication")
+                    return False
+                user_data['password_hash'] = hashlib.sha256(password.encode()).hexdigest()
+                user_data['auth_type'] = 'password'
+            
+            # Store user
+            self.users[username] = user_data
             self._save_users()
             
-            logger.info(f"User {username} registered successfully")
+            logger.info(f"User {username} registered successfully ({user_data['auth_type']} auth)")
             if self.tts:
                 self.tts.speak(f"User {username} registered successfully")
             
@@ -182,13 +230,16 @@ class Authenticator:
                 self.tts.speak("Registration failed")
             return False
     
-    def authenticate(self, duration: int = 3, threshold: float = 0.75) -> Optional[str]:
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None, 
+                    duration: int = 3, threshold: float = 0.75) -> Optional[str]:
         """
-        Authenticate user by voice
+        Authenticate user by voice or password
         
         Args:
-            duration: Recording duration
-            threshold: Similarity threshold (0-1)
+            username: Username (required for password auth)
+            password: Password (for password auth)
+            duration: Recording duration (for voice auth)
+            threshold: Similarity threshold (0-1) for voice auth
             
         Returns:
             Username if authenticated, None otherwise
@@ -200,49 +251,87 @@ class Authenticator:
             return None
         
         try:
-            # Record voice sample
-            audio_data = self.record_voice_sample(duration)
-            if audio_data is None:
-                return None
-            
-            # Preprocess audio
-            wav = preprocess_wav(audio_data)
-            
-            # Generate embedding
-            test_embedding = self.encoder.embed_utterance(wav)
-            
-            # Compare with all users
-            best_match = None
-            best_similarity = 0.0
-            
-            for username, user_data in self.users.items():
-                stored_embedding = user_data['embedding']
-                similarity = np.dot(test_embedding, stored_embedding)
+            # Password authentication
+            if username and password:
+                if username not in self.users:
+                    logger.warning(f"User {username} not found")
+                    if self.tts:
+                        self.tts.speak("User not found")
+                    return None
                 
-                logger.debug(f"Similarity with {username}: {similarity:.3f}")
-                
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = username
+                user_data = self.users[username]
+                if user_data.get('auth_type') == 'password':
+                    password_hash = hashlib.sha256(password.encode()).hexdigest()
+                    if password_hash == user_data.get('password_hash'):
+                        self.current_user = username
+                        self.users[username]['last_login'] = datetime.now()
+                        self._save_users()
+                        self._create_session(username)
+                        
+                        logger.info(f"User {username} authenticated (password)")
+                        if self.tts:
+                            self.tts.speak(f"Welcome {username}")
+                        return username
+                    else:
+                        logger.warning("Invalid password")
+                        if self.tts:
+                            self.tts.speak("Invalid password")
+                        return None
             
-            # Check threshold
-            if best_similarity >= threshold:
-                self.current_user = best_match
-                self.users[best_match]['last_login'] = datetime.now()
-                self._save_users()
+            # Voice authentication
+            if self.voice_auth_enabled:
+                audio_data = self.record_voice_sample(duration)
+                if audio_data is None:
+                    return None
                 
-                # Create session
-                self._create_session(best_match)
+                # Preprocess audio
+                wav = preprocess_wav(audio_data)
                 
-                logger.info(f"User {best_match} authenticated (similarity: {best_similarity:.3f})")
-                if self.tts:
-                    self.tts.speak(f"Welcome {best_match}")
+                # Generate embedding
+                test_embedding = self.encoder.embed_utterance(wav)
                 
-                return best_match
+                # Compare with all users
+                best_match = None
+                best_similarity = 0.0
+                
+                for user, user_data in self.users.items():
+                    if user_data.get('auth_type') != 'voice':
+                        continue
+                    
+                    stored_embedding = user_data.get('embedding')
+                    if stored_embedding is None:
+                        continue
+                    
+                    similarity = np.dot(test_embedding, stored_embedding)
+                    
+                    logger.debug(f"Similarity with {user}: {similarity:.3f}")
+                    
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = user
+                
+                # Check threshold
+                if best_similarity >= threshold:
+                    self.current_user = best_match
+                    self.users[best_match]['last_login'] = datetime.now()
+                    self._save_users()
+                    
+                    # Create session
+                    self._create_session(best_match)
+                    
+                    logger.info(f"User {best_match} authenticated (voice, similarity: {best_similarity:.3f})")
+                    if self.tts:
+                        self.tts.speak(f"Welcome {best_match}")
+                    
+                    return best_match
+                else:
+                    logger.warning(f"Authentication failed (best similarity: {best_similarity:.3f})")
+                    if self.tts:
+                        self.tts.speak("Authentication failed")
+                    return None
             else:
-                logger.warning(f"Authentication failed (best similarity: {best_similarity:.3f})")
                 if self.tts:
-                    self.tts.speak("Authentication failed")
+                    self.tts.speak("Please provide username and password")
                 return None
                 
         except Exception as e:
@@ -316,3 +405,7 @@ class Authenticator:
             logger.info(f"User {username} deleted")
             return True
         return False
+    
+    def is_voice_auth_available(self) -> bool:
+        """Check if voice authentication is available"""
+        return self.voice_auth_enabled
