@@ -4,20 +4,19 @@ PySide6>=6.5.0
 # Speech Recognition and Audio
 vosk>=0.3.45
 sounddevice>=0.4.6
-pyaudio>=0.2.13
+# PyAudio is optional - sounddevice is the primary audio library
 
 # Text-to-Speech
 pyttsx3>=2.90
 
-# Voice Authentication and Processing
-resemblyzer>=0.1.1.dev0
-librosa>=0.10.0
-python_speech_features>=0.6
+# Voice Authentication and Processing (Optional - graceful degradation)
+# resemblyzer>=0.1.1.dev0
+# librosa>=0.10.0
+# python_speech_features>=0.6
 
 # Scientific Computing
-numpy>=1.24.0
+numpy>=1.24.0,<2.0.0
 scipy>=1.10.0
-scikit-learn>=1.3.0
 
 # Text Processing
 rapidfuzz>=3.0.0
@@ -33,24 +32,15 @@ pywin32>=305; platform_system == "Windows"
 pyobjc-framework-Cocoa>=9.0; platform_system == "Darwin"
 pyobjc-framework-ApplicationServices>=9.0; platform_system == "Darwin"
 
-# Accessibility Features (Optional but recommended)
+# Accessibility Features (Optional)
 pyautogui>=0.9.54
-opencv-python>=4.8.0
-pytesseract>=0.3.10
 Pillow>=10.0.0
-pygetwindow>=0.0.9; platform_system == "Windows"
-
-# Development and Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
-black>=23.7.0
-flake8>=6.1.0
-
-# Logging and Monitoring
-colorlog>=6.7.0
 
 # Configuration Management
 pyyaml>=6.0.1
+
+# HTTP requests for model downloads
+requests>=2.31.0
 
 # Note: Standard library modules used (no installation needed):
 # - pathlib, threading, queue, logging, datetime, json, pickle
