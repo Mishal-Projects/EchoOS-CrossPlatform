@@ -1,17 +1,18 @@
-.PHONY: help install setup test run clean lint format docs
+.PHONY: help install setup test run run-enhanced clean lint format docs
 
 help:
 	@echo "EchoOS Development Commands"
 	@echo "============================"
 	@echo ""
-	@echo "  make install    - Install dependencies"
-	@echo "  make setup      - Run first-time setup"
-	@echo "  make test       - Run tests"
-	@echo "  make run        - Run EchoOS"
-	@echo "  make clean      - Clean temporary files"
-	@echo "  make lint       - Run linters"
-	@echo "  make format     - Format code"
-	@echo "  make docs       - Generate documentation"
+	@echo "  make install        - Install dependencies"
+	@echo "  make setup          - Run first-time setup"
+	@echo "  make test           - Run tests"
+	@echo "  make run            - Run EchoOS (standard version)"
+	@echo "  make run-enhanced   - Run EchoOS Enhanced (dark mode + waveform)"
+	@echo "  make clean          - Clean temporary files"
+	@echo "  make lint           - Run linters"
+	@echo "  make format         - Format code"
+	@echo "  make docs           - Generate documentation"
 	@echo ""
 
 install:
@@ -33,8 +34,12 @@ test:
 	@echo "Coverage report: htmlcov/index.html"
 
 run:
-	@echo "Starting EchoOS..."
-	python run.py
+	@echo "Starting EchoOS (Standard Version)..."
+	python main.py
+
+run-enhanced:
+	@echo "Starting EchoOS Enhanced (Dark Mode + Waveform)..."
+	python main_enhanced.py
 
 clean:
 	@echo "Cleaning temporary files..."
@@ -81,3 +86,15 @@ microphone-test:
 
 discover-apps:
 	python scripts/discover_apps.py
+
+# Version comparison
+compare:
+	@echo "EchoOS Versions:"
+	@echo "  Standard:  python main.py"
+	@echo "  Enhanced:  python main_enhanced.py"
+	@echo ""
+	@echo "Enhanced features:"
+	@echo "  ✓ Dark mode theme"
+	@echo "  ✓ Animated waveform"
+	@echo "  ✓ Modern UI design"
+	@echo "  ✓ Theme toggle"
