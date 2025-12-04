@@ -10,6 +10,7 @@ import hashlib
 import logging
 import pathlib
 import numpy as np
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
 from cryptography.fernet import Fernet
@@ -134,109 +135,164 @@ class Authenticator:
         """
         if not self.voice_auth_enabled:
             logger.warning("Voice authentication not available")
+            if self.tts:
+                self.tts.speak("Voice authentication not available")
             return None
         
         try:
             logger.info(f"Recording voice sample for {duration} seconds...")
-            if self.tts:
-                self.tts.speak(f"Please speak clearly for {duration} seconds")
+            
+            # Give user time to prepare (don't use TTS as it might block)
+            print(f"\n{'='*60}")
+            print(f"🎤 RECORDING IN 2 SECONDS...")
+            print(f"Please speak clearly for {duration} seconds")
+            print(f"{'='*60}\n")
+            
+            time.sleep(2)  # Give user time to prepare
+            
+            print("🔴 RECORDING NOW - SPEAK!")
             
             # Record audio
             recording = sd.rec(
                 int(duration * sample_rate),
                 samplerate=sample_rate,
                 channels=1,
-                dtype='float32'
+                dtype='float32',
+                blocking=False
             )
-            sd.wait()
+            
+            # Wait for recording with progress indicator
+            for i in range(duration):
+                time.sleep(1)
+                print(f"  Recording... {i+1}/{duration} seconds")
+            
+            sd.wait()  # Ensure recording is complete
+            
+            print("✅ Recording complete!\n")
             
             # Flatten to 1D array
             audio_data = recording.flatten()
+            
+            # Check if audio was actually recorded
+            max_level = np.max(np.abs(audio_data))
+            avg_level = np.mean(np.abs(audio_data))
+            
+            logger.info(f"Audio levels - Max: {max_level:.4f}, Avg: {avg_level:.4f}")
+            
+            if max_level < 0.001:
+                logger.error("No audio detected - microphone may not be working")
+                print("❌ ERROR: No audio detected!")
+                print("   Please check:")
+                print("   1. Microphone is connected")
+                print("   2. Microphone permissions are granted")
+                print("   3. Correct microphone is selected as default")
+                print("   4. Microphone volume is not muted")
+                print("\n   Run: python scripts/test_microphone.py")
+                return None
+            
+            if max_level < 0.01:
+                logger.warning("Audio levels very low - speak louder")
+                print("⚠️  WARNING: Audio levels are very low")
+                print("   Please speak louder or increase microphone volume")
             
             logger.info("Voice sample recorded successfully")
             return audio_data
             
         except Exception as e:
             logger.error(f"Error recording voice sample: {e}")
-            if self.tts:
-                self.tts.speak("Error recording voice sample")
+            print(f"\n❌ ERROR: Failed to record audio")
+            print(f"   Error: {e}")
+            print(f"   Run: python scripts/test_microphone.py")
             return None
     
-    def register_user(self, username: str, password: Optional[str] = None, duration: int = 5) -> bool:
+    def register_user(self, username: str, password: str = None, duration: int = 5) -> bool:
         """
         Register new user with voice sample or password
         
         Args:
             username: Username to register
-            password: Password (used if voice auth unavailable)
-            duration: Recording duration for voice sample
+            password: Password (optional, for password auth)
+            duration: Recording duration for voice auth
             
         Returns:
             True if successful, False otherwise
         """
         if username in self.users:
             logger.warning(f"User {username} already exists")
-            if self.tts:
-                self.tts.speak("User already exists")
+            print(f"❌ User '{username}' already exists")
             return False
         
         try:
-            user_data = {
-                'created_at': datetime.now(),
-                'last_login': None
-            }
-            
-            # Try voice authentication first
-            if self.voice_auth_enabled:
+            # Voice authentication
+            if self.voice_auth_enabled and password is None:
+                print(f"\n📝 Registering user: {username}")
+                print("   Using voice biometric authentication")
+                
+                # Record voice sample
                 audio_data = self.record_voice_sample(duration)
-                if audio_data is not None:
-                    # Preprocess audio
-                    wav = preprocess_wav(audio_data)
-                    
-                    # Generate voice embedding
-                    embedding = self.encoder.embed_utterance(wav)
-                    user_data['embedding'] = embedding
-                    user_data['auth_type'] = 'voice'
-                else:
-                    logger.warning("Voice recording failed, falling back to password")
-                    if not password:
-                        if self.tts:
-                            self.tts.speak("Voice recording failed and no password provided")
-                        return False
-                    user_data['password_hash'] = hashlib.sha256(password.encode()).hexdigest()
-                    user_data['auth_type'] = 'password'
-            else:
-                # Use password authentication
-                if not password:
-                    if self.tts:
-                        self.tts.speak("Password required for authentication")
+                if audio_data is None:
                     return False
-                user_data['password_hash'] = hashlib.sha256(password.encode()).hexdigest()
-                user_data['auth_type'] = 'password'
+                
+                # Preprocess audio
+                print("🔄 Processing voice sample...")
+                wav = preprocess_wav(audio_data)
+                
+                # Generate voice embedding
+                print("🔄 Generating voice signature...")
+                embedding = self.encoder.embed_utterance(wav)
+                
+                # Store user
+                self.users[username] = {
+                    'embedding': embedding,
+                    'auth_type': 'voice',
+                    'created_at': datetime.now(),
+                    'last_login': None
+                }
+                
+                self._save_users()
+                
+                logger.info(f"User {username} registered successfully (voice)")
+                print(f"✅ User '{username}' registered successfully!")
+                print("   You can now login using voice authentication")
+                
+                return True
             
-            # Store user
-            self.users[username] = user_data
-            self._save_users()
+            # Password authentication
+            elif password:
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                
+                self.users[username] = {
+                    'password_hash': password_hash,
+                    'auth_type': 'password',
+                    'created_at': datetime.now(),
+                    'last_login': None
+                }
+                
+                self._save_users()
+                
+                logger.info(f"User {username} registered successfully (password)")
+                print(f"✅ User '{username}' registered successfully!")
+                
+                return True
             
-            logger.info(f"User {username} registered successfully ({user_data['auth_type']} auth)")
-            if self.tts:
-                self.tts.speak(f"User {username} registered successfully")
-            
-            return True
-            
+            else:
+                logger.error("No authentication method available")
+                print("❌ No authentication method available")
+                print("   Voice auth is disabled and no password provided")
+                return False
+                
         except Exception as e:
             logger.error(f"Error registering user: {e}")
-            if self.tts:
-                self.tts.speak("Registration failed")
+            print(f"❌ Registration failed: {e}")
             return False
     
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None, 
+    def authenticate(self, username: str = None, password: str = None, 
                     duration: int = 3, threshold: float = 0.75) -> Optional[str]:
         """
         Authenticate user by voice or password
         
         Args:
-            username: Username (required for password auth)
+            username: Username (for password auth)
             password: Password (for password auth)
             duration: Recording duration (for voice auth)
             threshold: Similarity threshold (0-1) for voice auth
@@ -246,8 +302,8 @@ class Authenticator:
         """
         if not self.users:
             logger.warning("No users registered")
-            if self.tts:
-                self.tts.speak("No users registered")
+            print("❌ No users registered")
+            print("   Please register a user first")
             return None
         
         try:
@@ -255,8 +311,7 @@ class Authenticator:
             if username and password:
                 if username not in self.users:
                     logger.warning(f"User {username} not found")
-                    if self.tts:
-                        self.tts.speak("User not found")
+                    print(f"❌ User '{username}' not found")
                     return None
                 
                 user_data = self.users[username]
@@ -269,31 +324,35 @@ class Authenticator:
                         self._create_session(username)
                         
                         logger.info(f"User {username} authenticated (password)")
-                        if self.tts:
-                            self.tts.speak(f"Welcome {username}")
+                        print(f"✅ Welcome {username}!")
                         return username
                     else:
                         logger.warning("Invalid password")
-                        if self.tts:
-                            self.tts.speak("Invalid password")
+                        print("❌ Invalid password")
                         return None
             
             # Voice authentication
             if self.voice_auth_enabled:
+                print(f"\n🔑 Voice Authentication")
+                print(f"   Registered users: {len(self.users)}")
+                
                 audio_data = self.record_voice_sample(duration)
                 if audio_data is None:
                     return None
                 
                 # Preprocess audio
+                print("🔄 Processing voice sample...")
                 wav = preprocess_wav(audio_data)
                 
                 # Generate embedding
+                print("🔄 Analyzing voice signature...")
                 test_embedding = self.encoder.embed_utterance(wav)
                 
                 # Compare with all users
                 best_match = None
                 best_similarity = 0.0
                 
+                print("🔄 Comparing with registered users...")
                 for user, user_data in self.users.items():
                     if user_data.get('auth_type') != 'voice':
                         continue
@@ -305,12 +364,16 @@ class Authenticator:
                     similarity = np.dot(test_embedding, stored_embedding)
                     
                     logger.debug(f"Similarity with {user}: {similarity:.3f}")
+                    print(f"   {user}: {similarity:.3f}")
                     
                     if similarity > best_similarity:
                         best_similarity = similarity
                         best_match = user
                 
                 # Check threshold
+                print(f"\n   Best match: {best_match} ({best_similarity:.3f})")
+                print(f"   Threshold: {threshold}")
+                
                 if best_similarity >= threshold:
                     self.current_user = best_match
                     self.users[best_match]['last_login'] = datetime.now()
@@ -320,24 +383,23 @@ class Authenticator:
                     self._create_session(best_match)
                     
                     logger.info(f"User {best_match} authenticated (voice, similarity: {best_similarity:.3f})")
-                    if self.tts:
-                        self.tts.speak(f"Welcome {best_match}")
+                    print(f"\n✅ Welcome {best_match}!")
                     
                     return best_match
                 else:
                     logger.warning(f"Authentication failed (best similarity: {best_similarity:.3f})")
-                    if self.tts:
-                        self.tts.speak("Authentication failed")
+                    print(f"\n❌ Authentication failed")
+                    print(f"   Similarity too low: {best_similarity:.3f} < {threshold}")
+                    print(f"   Try speaking more clearly or re-register")
                     return None
             else:
-                if self.tts:
-                    self.tts.speak("Please provide username and password")
+                print("❌ Voice authentication not available")
+                print("   Please provide username and password")
                 return None
                 
         except Exception as e:
             logger.error(f"Error during authentication: {e}")
-            if self.tts:
-                self.tts.speak("Authentication error")
+            print(f"❌ Authentication error: {e}")
             return None
     
     def _create_session(self, username: str):
@@ -360,8 +422,7 @@ class Authenticator:
         """Logout current user"""
         if self.current_user:
             logger.info(f"User {self.current_user} logged out")
-            if self.tts:
-                self.tts.speak("Logged out")
+            print(f"👋 Goodbye {self.current_user}!")
             self.current_user = None
     
     def is_authenticated(self) -> bool:
@@ -403,7 +464,9 @@ class Authenticator:
             del self.users[username]
             self._save_users()
             logger.info(f"User {username} deleted")
+            print(f"✅ User '{username}' deleted")
             return True
+        print(f"❌ User '{username}' not found")
         return False
     
     def is_voice_auth_available(self) -> bool:
